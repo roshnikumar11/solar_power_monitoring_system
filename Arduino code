@@ -1,0 +1,359 @@
+Solar Power Monitoring System
+ 
+Real-time monitoring of solar panel performance with:
+  - Voltage and current measurement for power calculation
+  - Temperature monitoring (ambient and panel)  
+  - Light intensity measurement
+  - LCD display for local monitoring
+  - Serial output for data viewing
+  
+ Author: Roshni N Kumar
+ 
+-------------------------
+
+#include <LiquidCrystal.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <Wire.h>
+
+// Pin Definitions
+#define VOLTAGE_PIN A0          // Voltage sensor input (via voltage divider)
+#define CURRENT_PIN A1          // ACS712 current sensor output
+#define TEMP_SENSOR_PIN 2       // DS18B20 temperature sensors data pin
+#define STATUS_LED_PIN 13       // Status indicator LED (optional)
+
+// LCD Pin Configuration (4-bit mode)
+#define LCD_RS 7
+#define LCD_EN 8
+#define LCD_D4 9
+#define LCD_D5 10
+#define LCD_D6 11
+#define LCD_D7 12
+
+// System Configuration Constants
+#define VOLTAGE_CALIBRATION 25.0    // Voltage divider ratio (adjust for your circuit)
+#define ACS712_SENSITIVITY 0.066    // 30A version: 66mV/A
+#define ACS712_ZERO_POINT 2.5       // Zero current voltage (VCC/2)
+#define SAMPLE_COUNT 5              // Number of samples for averaging
+#define DISPLAY_INTERVAL 3000       // LCD update interval (3 seconds)
+#define PANEL_RATED_POWER 100.0     // Panel rated power in watts (adjust to your panel)
+
+// Initialize components
+LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+OneWire oneWire(TEMP_SENSOR_PIN);
+DallasTemperature tempSensors(&oneWire);
+
+// Global variables for sensor readings
+float voltage = 0.0;
+float current = 0.0;
+float power = 0.0;
+float panelTemp = 0.0;
+float ambientTemp = 0.0;
+float lightIntensity = 0.0;
+float efficiency = 0.0;
+
+// Display control
+unsigned long lastDisplayTime = 0;
+int displayMode = 0;  // Cycling display modes
+bool systemActive = false;
+
+void setup() {
+    Serial.begin(9600);
+    
+    // Initialize status LED
+    pinMode(STATUS_LED_PIN, OUTPUT);
+    digitalWrite(STATUS_LED_PIN, HIGH);
+    
+    // Initialize LCD
+    lcd.begin(16, 2);
+    lcd.print("Solar Monitor");
+    lcd.setCursor(0, 1);
+    lcd.print("Starting up...");
+    
+    Serial.println("=== Solar Power Monitoring System ===");
+    Serial.println("Initializing sensors...");
+    
+    // Initialize I2C for potential future sensors
+    Wire.begin();
+    
+    // Initialize temperature sensors
+    tempSensors.begin();
+    int tempDeviceCount = tempSensors.getDeviceCount();
+    Serial.print("Temperature sensors found: ");
+    Serial.println(tempDeviceCount);
+    
+    if (tempDeviceCount >= 1) {
+        tempSensors.setResolution(12); // 12-bit resolution
+        systemActive = true;
+    }
+    
+    delay(2000);
+    lcd.clear();
+    
+    Serial.println("System ready - Starting measurements");
+    Serial.println("=====================================");
+    digitalWrite(STATUS_LED_PIN, LOW);
+}
+
+void loop() {
+    unsigned long currentTime = millis();
+    
+    // Read all sensors
+    readAllSensors();
+    
+    // Calculate derived values
+    calculateDerivedValues();
+    
+    // Update display every few seconds
+    if (currentTime - lastDisplayTime >= DISPLAY_INTERVAL) {
+        updateDisplay();
+        lastDisplayTime = currentTime;
+    }
+    
+    // Output data to serial monitor
+    printSensorData();
+    
+    // Status LED heartbeat
+    digitalWrite(STATUS_LED_PIN, (currentTime / 1000) % 2);
+    
+    delay(1000); // Read sensors every second
+}
+
+void readAllSensors() {
+    // Read voltage from solar panel
+    voltage = readVoltage();
+    
+    // Read current from ACS712 sensor
+    current = readCurrent();
+    
+    // Read temperatures
+    readTemperatures();
+    
+    // Read light intensity (simplified using analog pin if no digital sensor)
+    lightIntensity = readLightIntensity();
+}
+
+float readVoltage() {
+    long sum = 0;
+    
+    // Take multiple samples for accuracy
+    for (int i = 0; i < SAMPLE_COUNT; i++) {
+        sum += analogRead(VOLTAGE_PIN);
+        delay(10);
+    }
+    
+    float average = sum / (float)SAMPLE_COUNT;
+    
+    // Convert to actual voltage
+    // Arduino ADC: 0-1023 represents 0-5V
+    // Voltage divider scales down the solar panel voltage
+    float measuredVoltage = (average / 1023.0) * 5.0 * VOLTAGE_CALIBRATION;
+    
+    return measuredVoltage;
+}
+
+float readCurrent() {
+    long sum = 0;
+    
+    // Take multiple samples for accuracy
+    for (int i = 0; i < SAMPLE_COUNT; i++) {
+        sum += analogRead(CURRENT_PIN);
+        delay(10);
+    }
+    
+    float average = sum / (float)SAMPLE_COUNT;
+    
+    // Convert ADC reading to voltage
+    float sensorVoltage = (average / 1023.0) * 5.0;
+    
+    // Convert to current using ACS712 specifications
+    // ACS712: 2.5V = 0A, sensitivity = 66mV/A for 30A version
+    float measuredCurrent = (sensorVoltage - ACS712_ZERO_POINT) / ACS712_SENSITIVITY;
+    
+    // Ensure non-negative current (solar panels don't typically reverse current)
+    return max(0.0, measuredCurrent);
+}
+
+void readTemperatures() {
+    tempSensors.requestTemperatures(); // Request temperature from all sensors
+    
+    // If we have at least one sensor, read it
+    if (tempSensors.getDeviceCount() > 0) {
+        panelTemp = tempSensors.getTempCByIndex(0);
+        
+        // If we have a second sensor, use it for ambient temperature
+        if (tempSensors.getDeviceCount() > 1) {
+            ambientTemp = tempSensors.getTempCByIndex(1);
+        } else {
+            // If only one sensor, assume it's measuring ambient temperature
+            ambientTemp = panelTemp;
+            panelTemp = ambientTemp + 15.0; // Estimate panel temp (typically 15°C higher)
+        }
+    }
+    
+    // Handle sensor errors
+    if (panelTemp == DEVICE_DISCONNECTED_C) {
+        panelTemp = -999; // Error indicator
+    }
+    if (ambientTemp == DEVICE_DISCONNECTED_C) {
+        ambientTemp = -999; // Error indicator
+    }
+}
+
+float readLightIntensity() {
+    // Simplified light reading using LDR on analog pin
+    // If you have a BH1750 digital sensor, replace this function
+    
+    int lightReading = analogRead(A2); // Assuming LDR on A2
+    
+    // Convert to approximate lux value (this is a rough approximation)
+    // You'll need to calibrate this based on your specific LDR
+    float lux = map(lightReading, 0, 1023, 0, 50000);
+    
+    return lux;
+}
+
+void calculateDerivedValues() {
+    // Calculate power (P = V × I)
+    power = voltage * current;
+    
+    // Calculate basic efficiency
+    if (PANEL_RATED_POWER > 0) {
+        efficiency = (power / PANEL_RATED_POWER) * 100.0;
+        
+        // Cap efficiency at 100% (measurement errors can cause >100%)
+        efficiency = min(efficiency, 100.0);
+    } else {
+        efficiency = 0.0;
+    }
+    
+    // Apply simple temperature compensation if temperature reading is valid
+    if (panelTemp > -100 && panelTemp < 100) { // Valid temperature range
+        // Solar panels typically lose ~0.4% efficiency per °C above 25°C
+        float tempCompensation = 1.0 - 0.004 * (panelTemp - 25.0);
+        efficiency *= tempCompensation;
+    }
+}
+
+void updateDisplay() {
+    lcd.clear();
+    
+    // Cycle through different display modes
+    switch (displayMode % 4) {
+        case 0: // Power and Voltage
+            lcd.setCursor(0, 0);
+            lcd.print("Pwr: ");
+            lcd.print(power, 1);
+            lcd.print("W");
+            
+            lcd.setCursor(0, 1);
+            lcd.print("Vol: ");
+            lcd.print(voltage, 1);
+            lcd.print("V");
+            break;
+            
+        case 1: // Current and Efficiency  
+            lcd.setCursor(0, 0);
+            lcd.print("Cur: ");
+            lcd.print(current, 2);
+            lcd.print("A");
+            
+            lcd.setCursor(0, 1);
+            lcd.print("Eff: ");
+            lcd.print(efficiency, 0);
+            lcd.print("%");
+            break;
+            
+        case 2: // Temperature readings
+            lcd.setCursor(0, 0);
+            lcd.print("Panel: ");
+            if (panelTemp > -100) {
+                lcd.print(panelTemp, 1);
+                lcd.print("C");
+            } else {
+                lcd.print("ERR");
+            }
+            
+            lcd.setCursor(0, 1);
+            lcd.print("Ambient: ");
+            if (ambientTemp > -100) {
+                lcd.print(ambientTemp, 1);
+                lcd.print("C");
+            } else {
+                lcd.print("ERR");
+            }
+            break;
+            
+        case 3: // Light intensity
+            lcd.setCursor(0, 0);
+            lcd.print("Light Intensity");
+            
+            lcd.setCursor(0, 1);
+            lcd.print(lightIntensity, 0);
+            lcd.print(" Lux");
+            break;
+    }
+    
+    displayMode++; // Cycle to next display mode
+}
+
+void printSensorData() {
+    // Output formatted data to serial monitor
+    Serial.println("=== Solar Monitor Reading ===");
+    Serial.print("Voltage: ");
+    Serial.print(voltage, 2);
+    Serial.println("V");
+    
+    Serial.print("Current: ");
+    Serial.print(current, 3);
+    Serial.println("A");
+    
+    Serial.print("Power: ");
+    Serial.print(power, 1);
+    Serial.println("W");
+    
+    Serial.print("Panel Temperature: ");
+    if (panelTemp > -100) {
+        Serial.print(panelTemp, 1);
+        Serial.println("°C");
+    } else {
+        Serial.println("Sensor Error");
+    }
+    
+    Serial.print("Ambient Temperature: ");
+    if (ambientTemp > -100) {
+        Serial.print(ambientTemp, 1);
+        Serial.println("°C");
+    } else {
+        Serial.println("Sensor Error");
+    }
+    
+    Serial.print("Light Intensity: ");
+    Serial.print(lightIntensity, 0);
+    Serial.println(" Lux");
+    
+    Serial.print("Efficiency: ");
+    Serial.print(efficiency, 1);
+    Serial.println("%");
+    
+    Serial.println("=============================");
+    Serial.println(); // Empty line for readability
+}
+
+// Helper function to check system status
+void printSystemInfo() {
+    Serial.println("=== System Information ===");
+    Serial.print("Panel Rated Power: ");
+    Serial.print(PANEL_RATED_POWER);
+    Serial.println("W");
+    
+    Serial.print("Voltage Calibration: ");
+    Serial.println(VOLTAGE_CALIBRATION);
+    
+    Serial.print("Temperature Sensors: ");
+    Serial.println(tempSensors.getDeviceCount());
+    
+    Serial.print("System Status: ");
+    Serial.println(systemActive ? "Active" : "Error");
+    Serial.println("==========================");
+}
