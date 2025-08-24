@@ -1,1 +1,1 @@
-# solar_power_monitoring_system
+# Solar Power Monitoring System
