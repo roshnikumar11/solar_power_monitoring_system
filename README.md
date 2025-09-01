@@ -28,7 +28,7 @@ This Solar Power Monitoring System provides real-time measurement and display of
 | **Microcontroller** | Arduino Uno | 1 | Main processing unit |
 | **Voltage Sensor** | Voltage Divider Circuit | 1 | Measure panel voltage |
 | **Current Sensor** | ACS712 (30A) | 1 | Measure current flow |
-| **Temperature Sensor** | DS18B20 | 1 | Ambient & panel temperature |
+| **Temperature Sensor** | LM35 | 1 | Ambient & panel temperature |
 | **Light Sensor** | LDR | 1 | Light intensity measurement |
 | **LCD Display** | 16x2 LCD | 1 | Local data display |
 | **Resistors** | 10kΩ, 1kΩ | Multiple | Voltage divider & pull-ups |
@@ -42,11 +42,11 @@ This Solar Power Monitoring System provides real-time measurement and display of
 **Analog Pins:**
 - `A0`: Voltage sensor input (via voltage divider)
 - `A1`: Current sensor (ACS712) output
-- `A4`: SDA (I2C for BH1750 light sensor)
-- `A5`: SCL (I2C for BH1750 light sensor)
+- `A4`: SDA (I2C for light sensor)
+- `A5`: SCL (I2C for light sensor)
 
 **Digital Pins:**
-- `Pin 2`: Temperature sensor (DS18B20) data line
+- `Pin 2`: Temperature sensor data line
 - `Pin 7`: LCD RS (Register Select)
 - `Pin 8`: LCD Enable
 - `Pin 9-12`: LCD Data pins (D4-D7)
@@ -62,7 +62,7 @@ This Solar Power Monitoring System provides real-time measurement and display of
 
 1. Voltage Divider Setup: Create voltage divider circuit using resistors (25:1 ratio for 0-25V measurement)
 2. Current Sensor Installation: Connect ACS712 in series with solar panel positive wire
-3. Temperature Sensors: Install DS18B20 sensors with 4.7kΩ pull-up resistor
+3. Temperature Sensors: Install LM35 sensor
 4. Light Sensor: Connect LDR via I2C (SDA/SCL pins)
 5. LCD Display: Wire 16x2 LCD in 4-bit mode to digital pins
 6. Power Supply: Connect 5V power supply to Arduino and sensors
@@ -102,7 +102,7 @@ cd solar-power-monitoring
 The LCD cycles through different display modes every 3 seconds:
 
 1. Power & Voltage: Current power output and panel voltage
-2. Current & Efficiency: Current flow and calculated efficiency
+2. Current & Efficiency: Current flow
 3. Temperature: Panel and ambient temperature readings
 4. Light Intensity: Solar irradiance measurement
 
@@ -114,36 +114,9 @@ Connect to Arduino via USB to view detailed sensor data:
 Voltage: 18.45V
 Current: 3.21A
 Power: 59.2W
-Panel Temp: 45.2°C
-Ambient Temp: 28.1°C
+Temperature: 45.2°C
 Light: 45230 Lux
-Efficiency: 59.2%
 =============================
-
-
-### Key Functions
-
-```cpp
-// Core measurement functions
-float readVoltage();           // Measure panel voltage
-float readCurrent();           // Measure panel current  
-float calculatePower();        // Compute power (V × I)
-float readTemperature();       // Get temperature readings
-float readLightIntensity();    // Measure light levels
-void updateDisplay();          // Refresh LCD display
-```
-
-## System Configuration
-
-### Calibration Constants
-
-```cpp
-// Adjust these values based on your hardware
-#define VOLTAGE_CALIBRATION 25.0    // Voltage divider ratio
-#define ACS712_SENSITIVITY 0.066    // Current sensor sensitivity
-#define ACS712_ZERO_POINT 2.5       // Zero current voltage
-#define PANEL_RATED_POWER 100.0     // Your panel's rated power
-```
 
 ### Measurement Parameters
 
@@ -159,19 +132,6 @@ void updateDisplay();          // Refresh LCD display
 ```cpp
 Power (W) = Voltage (V) × Current (A)
 ```
-
-### Basic Efficiency
-```cpp
-Efficiency (%) = (Actual Power / Rated Power) × 100
-```
-
-### Temperature Impact
-Basic temperature compensation can be applied:
-```cpp
-// Typical solar panels lose ~0.4% per °C above 25°C
-Compensated Power = Measured Power × (1 + 0.004 × (25 - Panel Temp))
-```
-
 ## Monitoring Applications
 
 ### Residential Use
@@ -189,64 +149,13 @@ Compensated Power = Measured Power × (1 + 0.004 × (25 - Panel Temp))
 - Environmental Studies: Analyze temperature and light impact on efficiency
 - System Design: Optimize solar installations
 
-## ⚡ Circuit Design
-
-### Voltage Measurement Circuit
-```
-Solar Panel (+) ----[10kΩ]----+----[1kΩ]---- GND
-                              |
-                              +---- Arduino A0
-```
-
-### Current Measurement
-- ACS712 sensor in series with positive wire
-- Output voltage proportional to current flow
-- 2.5V = 0A, increases/decreases with current direction
-
-### Temperature Sensors
-- DS18B20 with 4.7kΩ pull-up resistor
-- One-wire protocol for multiple sensors
-- Waterproof versions available for outdoor use
-
-## Troubleshooting
-
-### Common Issues
-
-**LCD Not Displaying:**
-- Check power connections (5V, GND)
-- Verify data pin connections (D4-D7)
-- Adjust contrast potentiometer
-
-**Incorrect Voltage Readings:**
-- Calibrate voltage divider ratio
-- Check resistor values
-- Ensure stable power supply
-
-**Current Sensor Issues:**
-- Verify ACS712 orientation (current flow direction)
-- Check zero-point calibration
-- Ensure proper power supply to sensor
-
-**Temperature Sensor Problems:**
-- Confirm 4.7kΩ pull-up resistor
-- Check sensor addressing (multiple sensors)
-- Verify waterproof connections if used outdoors
-
-## Expected Performance
-
-### Typical Readings
-- 100W Panel (ideal conditions): ~18V, ~5.5A, ~100W
-- Efficiency: 85-95% under good conditions
-- Temperature Impact: 3-5°C above ambient for panels
-- Light Threshold: >10,000 Lux for meaningful power generation
-
 ### Environmental Factors
 - Temperature: Higher temps reduce voltage and efficiency
 - Light Intensity: Directly proportional to power output
 - Shading: Dramatic power reduction with partial shading
 - Panel Angle: Affects light capture throughout day
 
-## 🔮 Future Enhancements (Potential Upgrades)
+## Future Enhancements (Potential Upgrades)
 
 While the current system focuses on real-time monitoring, potential future additions could include:
 
