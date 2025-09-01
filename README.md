@@ -28,8 +28,8 @@ This Solar Power Monitoring System provides real-time measurement and display of
 | **Microcontroller** | Arduino Uno | 1 | Main processing unit |
 | **Voltage Sensor** | Voltage Divider Circuit | 1 | Measure panel voltage |
 | **Current Sensor** | ACS712 (30A) | 1 | Measure current flow |
-| **Temperature Sensor** | DS18B20 | 2 | Ambient & panel temperature |
-| **Light Sensor** | BH1750/LDR | 1 | Light intensity measurement |
+| **Temperature Sensor** | DS18B20 | 1 | Ambient & panel temperature |
+| **Light Sensor** | LDR | 1 | Light intensity measurement |
 | **LCD Display** | 16x2 LCD | 1 | Local data display |
 | **Resistors** | 10kΩ, 1kΩ | Multiple | Voltage divider & pull-ups |
 | **Breadboard/PCB** | - | 1 | Circuit assembly |
@@ -56,29 +56,6 @@ This Solar Power Monitoring System provides real-time measurement and display of
 - `5V`: Power supply for sensors and LCD
 - `GND`: Common ground for all components
 
-## Project Structure
-
-solar-power-monitoring/
-├── src/
-│   └── solar_monitor.ino          # Main Arduino code
-├── circuit/
-│   ├── circuit_diagram.png        # Circuit schematic
-│   └── breadboard_layout.png      # Breadboard connections
-├── docs/
-│   ├── setup_guide.md             # Hardware setup instructions
-│   ├── calibration.md             # Sensor calibration guide
-│   └── troubleshooting.md         # Common issues and solutions
-├── images/
-│   ├── project_photos/            # Hardware assembly photos
-│   └── lcd_display_examples/      # LCD screen examples
-├── datasheets/
-│   ├── ACS712_datasheet.pdf       # Current sensor specifications
-│   ├── DS18B20_datasheet.pdf      # Temperature sensor specs
-│   └── BH1750_datasheet.pdf       # Light sensor specifications
-├── README.md                      # This file
-└── LICENSE                        # License file
-
-
 ## Getting Started
 
 ### 1. Hardware Assembly
@@ -86,7 +63,7 @@ solar-power-monitoring/
 1. Voltage Divider Setup: Create voltage divider circuit using resistors (25:1 ratio for 0-25V measurement)
 2. Current Sensor Installation: Connect ACS712 in series with solar panel positive wire
 3. Temperature Sensors: Install DS18B20 sensors with 4.7kΩ pull-up resistor
-4. Light Sensor: Connect BH1750 via I2C (SDA/SCL pins)
+4. Light Sensor: Connect LDR via I2C (SDA/SCL pins)
 5. LCD Display: Wire 16x2 LCD in 4-bit mode to digital pins
 6. Power Supply: Connect 5V power supply to Arduino and sensors
 
