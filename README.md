@@ -32,7 +32,7 @@ This Solar Power Monitoring System provides real-time measurement and display of
 | **Light Sensor** | LDR | 1 | Light intensity measurement |
 | **LCD Display** | 16x2 LCD | 1 | Local data display |
 | **Resistors** | 10kΩ, 1kΩ | Multiple | Voltage divider & pull-ups |
-| **Breadboard/PCB** | - | 1 | Circuit assembly |
+| **Breadboard** | - | 1 | Circuit assembly |
 | **Connecting Wires** | Jumper wires | Multiple | Component connections |
 
 ## Circuit Connections
